@@ -289,16 +289,22 @@ setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, 25_00
 
 // optional real mode without a tunnel: poll your GitHub activity for pushes
 if (GITHUB_USERNAME) {
-  let sinceId = null;
-  setInterval(async () => {
+  // the poll cursor is persisted in the pet state, so a restart doesn't
+  // skip events that happened while the server was down
+  const pollGitHub = async () => {
     try {
-      const { pushes, newest } = await pollUserEvents({ token: GITHUB_TOKEN, username: GITHUB_USERNAME, sinceId });
-      sinceId = newest;
+      const { pushes, newest } = await pollUserEvents({ token: GITHUB_TOKEN, username: GITHUB_USERNAME, sinceId: state.lastEventId ?? null });
+      if (newest && newest !== state.lastEventId) {
+        state.lastEventId = newest;
+        saveState(DATA_FILE, state);
+      }
       for (const push of pushes) await handleEvent(push);
     } catch (err) {
       pushLog(`github poll failed: ${err.message}`, 'bad');
     }
-  }, 90_000);
+  };
+  setInterval(pollGitHub, 90_000);
+  pollGitHub();
   console.log(`polling GitHub activity for @${GITHUB_USERNAME} every 90s`);
 }
 

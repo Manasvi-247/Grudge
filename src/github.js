@@ -48,6 +48,26 @@ export async function openIssue({ token, repo, title, body }) {
   return (await res.json()).html_url;
 }
 
+// Translate a public-activity event into an engine event, or null to ignore.
+// PushEvents carry commits. A CreateEvent for a repo's DEFAULT branch is the
+// "first push to a brand-new repo" — GitHub logs that as branch creation with
+// no PushEvent, so it counts as a one-commit meal. Feature-branch creations
+// are ignored: their commits arrive as a separate PushEvent, and counting
+// both would double-feed.
+export function translateUserEvent(e) {
+  if (e.type === 'PushEvent') {
+    return {
+      type: 'push',
+      commits: e.payload?.size || e.payload?.commits?.length || 1,
+      repo: e.repo?.name ?? 'unknown/repo',
+    };
+  }
+  if (e.type === 'CreateEvent' && e.payload?.ref_type === 'branch' && e.payload?.ref === e.payload?.master_branch) {
+    return { type: 'push', commits: 1, repo: e.repo?.name ?? 'unknown/repo' };
+  }
+  return null;
+}
+
 // Poll mode: returns push events newer than `sinceId`, plus the newest id seen.
 export async function pollUserEvents({ token, username, sinceId }) {
   const res = await fetch(`https://api.github.com/users/${username}/events?per_page=30`, {
@@ -60,13 +80,11 @@ export async function pollUserEvents({ token, username, sinceId }) {
   if (!res.ok) throw new Error(`GitHub said ${res.status}`);
   const events = await res.json();
   const newest = events[0]?.id ?? sinceId;
-  if (!sinceId) return { pushes: [], newest }; // first poll: baseline only, don't gorge on history
+  if (!sinceId) return { pushes: [], newest }; // first poll ever: baseline only, don't gorge on history
   const pushes = events
-    .filter((e) => e.type === 'PushEvent' && BigInt(e.id) > BigInt(sinceId))
-    .map((e) => ({
-      type: 'push',
-      commits: e.payload?.size || e.payload?.commits?.length || 1,
-      repo: e.repo?.name ?? 'unknown/repo',
-    }));
+    .filter((e) => BigInt(e.id) > BigInt(sinceId))
+    .reverse() // feed in chronological order
+    .map(translateUserEvent)
+    .filter(Boolean);
   return { pushes, newest };
 }
