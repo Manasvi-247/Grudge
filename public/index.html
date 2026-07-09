@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GRUDGE™ — it knows you haven't pushed</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🥚</text></svg>">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main>
+    <section class="left">
+      <div class="bubble" id="bubble">…</div>
+      <div class="device">
+        <div class="brand">GRUDGE™ <span class="gen" id="gen">gen 1</span></div>
+        <div class="screen"><img id="pet" src="/pet.svg?mode=screen" alt="your pet"></div>
+        <div class="buttons">
+          <div class="btn-wrap"><button id="btn-feed" class="btn">FEED</button><span>git push</span></div>
+          <div class="btn-wrap"><button id="btn-ship" class="btn">SHIP</button><span>build ✓</span></div>
+          <div class="btn-wrap"><button id="btn-break" class="btn danger">BREAK</button><span>build ✗</span></div>
+        </div>
+        <button id="btn-warp" class="warp" title="advance the pet's clock 12 hours">⏩ +12h</button>
+        <button id="btn-hatch" class="hatch hidden">🥚 HATCH NEW EGG</button>
+      </div>
+      <p class="caption">simulator buttons — in real mode these arrive as GitHub webhooks</p>
+    </section>
+
+    <section class="right">
+      <h2>EMOTIONAL DAMAGE</h2>
+      <ol class="meter" id="meter"></ol>
+
+      <h2>VITALS</h2>
+      <div class="vitals" id="vitals"></div>
+
+      <h2>NAME TAG</h2>
+      <div class="nametag">
+        <input id="name-input" maxlength="16" placeholder="…" autocomplete="off">
+        <button id="name-save">rechristen</button>
+      </div>
+      <p class="hint">16 chars max. the dead keep their names.</p>
+
+      <h2>GENE SPLICER</h2>
+      <div class="species" id="species"></div>
+      <p class="hint">locked species must be earned — career progress survives death. splicing is demo-only; in real mode every egg is a dice roll across your unlocks.</p>
+
+      <h2>EVENT LOG</h2>
+      <div class="log" id="log"></div>
+
+      <h2>README EMBED</h2>
+      <div class="embed">
+        <code id="embed-code">![grudge](http://localhost:4321/pet.svg)</code>
+        <button id="copy">copy</button>
+      </div>
+      <p class="hint">drop that in your profile README (deploy first so GitHub can reach it). the card below is what the world sees:</p>
+      <img class="card-preview" id="card" src="/pet.svg" alt="README card preview">
+
+      <h2>GRAVEYARD</h2>
+      <ul class="graveyard" id="graveyard"><li class="empty">no casualties yet. keep it that way.</li></ul>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "grudge",
+  "version": "0.1.0",
+  "description": "A Tamagotchi that lives in your GitHub. Commits feed it. Failed builds poison it. Neglect it and it opens passive-aggressive issues on your repos before dying publicly in your README.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {}
+}
