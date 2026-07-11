@@ -6,12 +6,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { newPet, applyEvent, tick, mood, ageDays, escalationLabel, STAGES, HOUR, UNLOCKS, newCareer, checkUnlocks } from './engine.js';
 import { statusLine, reaction, issueFor } from './snark.js';
-import { loadState, saveState } from './store.js';
+import { createStore } from './store.js';
 import { verifySignature, parseWebhook, openIssue, pollUserEvents } from './github.js';
 import { renderCard, renderScreen, SPECIES } from './svg.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const DATA_FILE = path.join(ROOT, 'data', 'pet.json');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 
 // ---- config (.env is optional, real values only needed for real mode) ----
@@ -26,7 +25,20 @@ const { WEBHOOK_SECRET, GITHUB_TOKEN, GITHUB_USERNAME, GITHUB_ISSUE_REPO } = pro
 const realIssues = Boolean(GITHUB_TOKEN && GITHUB_ISSUE_REPO);
 
 // ---- state ----
-const state = loadState(DATA_FILE, () => newPet(Date.now()));
+// The store picks its backend at boot: KV if configured (serverless), disk if
+// writable, in-memory as the loud last resort (read-only fs, e.g. Vercel
+// without KV). Lazy decay means a stateless pet still behaves correctly
+// within one process lifetime — it just forgets you on restart.
+const store = await createStore(path.join(ROOT, 'data'));
+let loadedData = { state: null, log: null };
+try {
+  loadedData = await store.load();
+} catch (err) {
+  console.error('state load failed, starting fresh:', err.message);
+}
+const state = loadedData.state ?? newPet(Date.now());
+const logEntries = loadedData.log ?? [];
+const persist = () => store.save(state, logEntries);
 if (!state.species) state.species = 'gremlin'; // pets born before the species update
 if (!state.career) {
   // pets born before the unlock update: grandfather in earned progress
@@ -39,12 +51,14 @@ if (!state.career) {
   );
   checkUnlocks(state); // boot-time unlocks are logged silently; UI reflects them
 }
-const logEntries = loadState(DATA_FILE + '.log', () => []);
 const now = () => Date.now() + (state.clockOffset || 0);
 
 function pushLog(msg, kind = 'info') {
   logEntries.push({ ts: now(), msg, kind });
   if (logEntries.length > 300) logEntries.splice(0, logEntries.length - 300);
+}
+if (store.mode === 'memory') {
+  pushLog('running STATELESS: read-only filesystem and no KV configured. state resets on restart — add a disk volume or set KV_REST_API_URL/KV_REST_API_TOKEN.', 'bad');
 }
 
 // ---- SSE ----
@@ -148,10 +162,34 @@ async function handleEffects(effects) {
 async function handleEvent(event) {
   const effects = applyEvent(state, event, now());
   const reactionLine = await handleEffects(effects);
-  saveState(DATA_FILE, state);
-  saveState(DATA_FILE + '.log', logEntries);
+  persist();
   broadcast(reactionLine);
   return reactionLine;
+}
+
+// GitHub polling (real mode). The cursor is persisted in the pet state, so a
+// restart doesn't skip events that happened while the server was down. Runs
+// on an interval on long-lived hosts; on serverless, point a cron at
+// GET /api/poll instead. Repeated identical failures are logged once.
+let lastPollError = null;
+async function pollGitHub() {
+  if (!GITHUB_USERNAME) return 0;
+  try {
+    const { pushes, newest } = await pollUserEvents({ token: GITHUB_TOKEN, username: GITHUB_USERNAME, sinceId: state.lastEventId ?? null });
+    if (newest && newest !== state.lastEventId) {
+      state.lastEventId = newest;
+      persist();
+    }
+    for (const push of pushes) await handleEvent(push);
+    lastPollError = null;
+    return pushes.length;
+  } catch (err) {
+    if (err.message !== lastPollError) {
+      pushLog(`github poll failed: ${err.message}`, 'bad');
+      lastPollError = err.message;
+    }
+    return 0;
+  }
 }
 
 // ---- http plumbing ----
@@ -178,9 +216,15 @@ const json = (res, code, obj) => {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   try {
-    // the product: the README embed
+    // the product: the README embed. Every card view advances the clock and
+    // fires due escalations — on serverless this IS the heartbeat.
     if (req.method === 'GET' && url.pathname === '/pet.svg') {
-      tick(state, now());
+      const effects = tick(state, now());
+      if (effects.length) {
+        await handleEffects(effects);
+        persist();
+        broadcast();
+      }
       // ?species=cat previews another sprite without touching the real pet
       const sp = url.searchParams.get('species');
       const view = sp && SPECIES[sp] ? { ...state, species: sp } : state;
@@ -191,8 +235,22 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/api/state') {
       const effects = tick(state, now());
-      if (effects.length) await handleEffects(effects);
+      if (effects.length) {
+        await handleEffects(effects);
+        persist();
+      }
       return json(res, 200, summary());
+    }
+
+    // for serverless crons: one poll + one tick per hit
+    if (req.method === 'GET' && url.pathname === '/api/poll') {
+      if (!GITHUB_USERNAME) return json(res, 400, { error: 'set GITHUB_USERNAME to enable polling' });
+      const fed = await pollGitHub();
+      const effects = tick(state, now());
+      if (effects.length) await handleEffects(effects);
+      persist();
+      broadcast();
+      return json(res, 200, { ok: true, fed, mood: mood(state, now()) });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/stream') {
@@ -241,8 +299,7 @@ const server = http.createServer(async (req, res) => {
         state.species = body.species;
         pushLog(`🧬 gene-spliced into a ${SPECIES[body.species].name} (demo)`, 'info');
         r = state.stage === 'egg' ? 'prenatal gene editing. bold. unethical. approved.' : 'new body. same grudges.';
-        saveState(DATA_FILE, state);
-        saveState(DATA_FILE + '.log', logEntries);
+        persist();
         broadcast(r);
         return json(res, 200, { ok: true, ...summary(r) });
       }
@@ -252,8 +309,7 @@ const server = http.createServer(async (req, res) => {
         pushLog(`⏩ time warped +${hours}h (demo)`, 'info');
         const effects = tick(state, now());
         r = await handleEffects(effects);
-        saveState(DATA_FILE, state);
-        saveState(DATA_FILE + '.log', logEntries);
+        persist();
         broadcast(r);
       } else return json(res, 404, { error: 'unknown lever' });
       return json(res, 200, { ok: true, ...summary(r) });
@@ -276,12 +332,13 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-// background heartbeat: decay + escalations fire even when nobody's watching
+// background heartbeat: decay + escalations fire even when nobody's watching.
+// (On serverless these intervals only run while an instance is warm — there,
+// card views and the /api/poll cron carry the clock instead.)
 setInterval(async () => {
   const effects = tick(state, now());
   if (effects.length) await handleEffects(effects);
-  saveState(DATA_FILE, state);
-  saveState(DATA_FILE + '.log', logEntries);
+  persist();
   broadcast();
 }, 60_000);
 // keep SSE connections alive through proxies
@@ -289,20 +346,6 @@ setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, 25_00
 
 // optional real mode without a tunnel: poll your GitHub activity for pushes
 if (GITHUB_USERNAME) {
-  // the poll cursor is persisted in the pet state, so a restart doesn't
-  // skip events that happened while the server was down
-  const pollGitHub = async () => {
-    try {
-      const { pushes, newest } = await pollUserEvents({ token: GITHUB_TOKEN, username: GITHUB_USERNAME, sinceId: state.lastEventId ?? null });
-      if (newest && newest !== state.lastEventId) {
-        state.lastEventId = newest;
-        saveState(DATA_FILE, state);
-      }
-      for (const push of pushes) await handleEvent(push);
-    } catch (err) {
-      pushLog(`github poll failed: ${err.message}`, 'bad');
-    }
-  };
   setInterval(pollGitHub, 90_000);
   pollGitHub();
   console.log(`polling GitHub activity for @${GITHUB_USERNAME} every 90s`);

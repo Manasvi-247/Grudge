@@ -112,5 +112,21 @@ $('#copy').onclick = async () => {
 
 $('#embed-code').textContent = `![grudge](${location.origin}/pet.svg)`;
 
-// live updates: server broadcasts on every event and every minute tick
-new EventSource('/api/stream').onmessage = (e) => render(JSON.parse(e.data));
+// live updates: server broadcasts on every event and every minute tick.
+// serverless hosts kill long-lived streams — after repeated SSE failures,
+// fall back to polling the state endpoint.
+let sseErrors = 0;
+let pollTimer = null;
+const es = new EventSource('/api/stream');
+es.onmessage = (e) => {
+  sseErrors = 0;
+  render(JSON.parse(e.data));
+};
+es.onerror = () => {
+  if (++sseErrors >= 3 && !pollTimer) {
+    es.close();
+    const poll = async () => render(await fetch('/api/state').then((r) => r.json()));
+    pollTimer = setInterval(poll, 5000);
+    poll();
+  }
+};

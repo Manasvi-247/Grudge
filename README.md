@@ -180,6 +180,17 @@ Then embed the card in your profile README:
 ![grudge](https://your-deployment.example.com/pet.svg)
 ```
 
+### Deploying
+
+The pet needs two things from a host: somewhere to keep its memories, and something to advance its clock.
+
+**Long-running host (Fly, Railway, Render, any VPS) — recommended.** Works as-is: the process stays alive, the heartbeat and poller run on intervals, state goes to `data/` on disk. Attach a volume so the pet survives redeploys.
+
+**Serverless (Vercel, Netlify).** The filesystem is read-only and nothing runs between requests, so two adjustments:
+
+1. *Persistence:* set `KV_REST_API_URL` and `KV_REST_API_TOKEN` (Vercel's Upstash/KV integration injects these automatically). The store detects them at boot and keeps state in Redis instead of on disk. With neither disk nor KV, the server runs stateless and says so in the event log.
+2. *Clock:* every view of `/pet.svg` advances time and fires due escalations — if people look at your README, the pet lives and dies correctly. For feeding cadence, point a cron at `GET /api/poll` (Vercel cron, GitHub Actions schedule, anything). The dashboard falls back from SSE to polling automatically.
+
 ## Architecture
 
 ```
