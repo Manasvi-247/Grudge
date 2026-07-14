@@ -1,0 +1,43 @@
+# Render Blueprint — deploys grudge as a single long-lived web service.
+# One instance means one owner of state: no clobbering race, and the poller
+# + heartbeat run for real (unlike serverless). State persists in Upstash KV.
+#
+# Secrets are marked `sync: false` so Render prompts for them at deploy time
+# instead of them living in the repo. Fill them in the dashboard.
+services:
+  - type: web
+    name: grudge
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      # pin Node so builds are reproducible (package.json requires >=18)
+      - key: NODE_VERSION
+        value: "20"
+
+      # persistence — reuse the Upstash Redis you already created.
+      # grab these from the Upstash console → REST API section.
+      - key: KV_REST_API_URL
+        sync: false
+      - key: KV_REST_API_TOKEN
+        sync: false
+
+      # real-time feeding via GitHub webhook — must match the secret you
+      # set on the repo webhook (Settings → Webhooks).
+      - key: WEBHOOK_SECRET
+        sync: false
+
+      # lets the pet file its passive-aggressive issues (optional).
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_ISSUE_REPO
+        sync: false
+
+      # OPTIONAL polling backstop. On Render the poller actually works, so you
+      # can add this to double up on the webhook. Leave unset to stay
+      # webhook-only (no "poll failed" noise).
+      # - key: GITHUB_USERNAME
+      #   sync: false
