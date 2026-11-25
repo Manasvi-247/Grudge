@@ -56,6 +56,7 @@ const SPECIES_FLAVOR = {
   capybara: 'unbothered. moisturized. ignoring your CI.',
   unicorn: 'a mythical creature. like your test coverage.',
   bunny: "i multiplied your branches. you're welcome.",
+  chihuahua: 'i weigh four pounds and i will bite your pull request.',
 };
 
 const REACTIONS = {

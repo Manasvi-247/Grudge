@@ -32,7 +32,7 @@ const NAMES = ['Pip', 'Bit', 'Nib', 'Zed', 'Blob', 'Moss', 'Pyx', 'Grub'];
 // Which species hatches is a dice roll you can't control: deterministic in
 // (bornAt, generation) so it stays pure, but bornAt is a timestamp, so from
 // the owner's perspective it's random. You get what you get.
-export const SPECIES_KEYS = ['gremlin', 'cat', 'octo', 'robot', 'capybara', 'unicorn', 'bunny'];
+export const SPECIES_KEYS = ['gremlin', 'cat', 'octo', 'robot', 'capybara', 'unicorn', 'bunny', 'chihuahua'];
 
 const STARTERS = ['gremlin', 'cat', 'octo'];
 
@@ -43,6 +43,7 @@ export const UNLOCKS = {
   bunny: { label: 'commit 3 days in a row', check: (c) => c.streak >= 3 },
   capybara: { label: 'keep a pet alive for 7 days', check: (c) => c.bestDays >= 7 },
   unicorn: { label: '10 commits in a single day', check: (c) => c.commitsToday >= 10 },
+  chihuahua: { label: 'commit 5 days in a row', check: (c) => c.streak >= 5 },
 };
 
 export function newCareer() {

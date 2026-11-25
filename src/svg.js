@@ -13,6 +13,7 @@ import { statusLine } from './snark.js';
 // solid around rows 3-7 / cols 2-11).
 // Grid legend after stamping: E=eye u=tired-eye(half) M=mouth A=brow C=cheek
 // s=speckle r=cross x=ghost-eye g=ghost-body n=nostril h=horn(always gold)
+// p=inner-ear(always pink) q=snout(always rosy brown)
 
 export const SPECIES = {
   gremlin: {
@@ -141,6 +142,25 @@ export const SPECIES = {
       '...oo....oo...',
     ],
   },
+  chihuahua: {
+    // all head, all ears, all attitude. no body was budgeted.
+    name: 'yappy chihuahua',
+    color: ['#f6f1ea', '#a8988a'],
+    grid: [
+      'oo..........oo',
+      'opo........opo',
+      'oppooooooooppo',
+      'opbbbbbbbbbbpo',
+      'obbbbbbbbbbbbo',
+      'obbbbbqqbbbbbo',
+      'obbbbbbbbbbbbo',
+      'obbbbbbbbbbbbo',
+      '.obbbbbbbbbbo.',
+      '..obbbbbbbbo..',
+      '...obbbbbbo...',
+      '....oooooo....',
+    ],
+  },
 };
 
 // mood → face pixels stamped at [x, y, char]. Coordinates target the shared
@@ -244,6 +264,8 @@ function renderGrid(grid, px, { body, outline, dark = '#0d1117', lcd = null, spe
     x: lcd ? null : dark,
     n: lcd ? null : outline,
     h: lcd ?? '#e3b341', // unicorn horn stays gold through every mood
+    p: lcd ? null : '#f4a6a0', // chihuahua inner ears stay pink, even furious
+    q: lcd ? null : '#b5655a', // chihuahua snout
   };
   let out = '';
   grid.forEach((row, y) => {

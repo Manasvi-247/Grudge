@@ -138,6 +138,14 @@ test('a 3-day commit streak unlocks the fork bunny', () => {
   assert.ok(effects.some((e) => e.type === 'unlock' && e.species === 'bunny'));
 });
 
+test('a 5-day commit streak unlocks the yappy chihuahua', () => {
+  const pet = newPet(T0);
+  for (let d = 0; d < 4; d++) applyEvent(pet, { type: 'push', commits: 6 }, T0 + d * DAY);
+  assert.ok(!pet.career.unlocked.includes('chihuahua'));
+  const effects = applyEvent(pet, { type: 'push', commits: 6 }, T0 + 4 * DAY);
+  assert.ok(effects.some((e) => e.type === 'unlock' && e.species === 'chihuahua'));
+});
+
 test('a gap resets the streak', () => {
   const pet = newPet(T0);
   applyEvent(pet, { type: 'push', commits: 6 }, T0);
