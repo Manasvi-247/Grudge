@@ -66,3 +66,9 @@ write('card-unicorn.svg', renderCard(
   pose('unicorn', 'Zed', { fullness: 100, health: 100, morale: 100, totalCommits: 128, generation: 4 }),
   T0 + 2 * DAY
 ));
+
+// Bonus — four pounds of grievance
+write('card-chihuahua.svg', renderCard(
+  pose('chihuahua', 'Nib', { fullness: 90, health: 100, morale: 95, totalCommits: 57, generation: 2 }),
+  T0 + 5 * DAY
+));

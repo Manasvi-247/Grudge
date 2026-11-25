@@ -13,7 +13,7 @@ Your neglect is its villain origin story.
 
 <br>
 
-*Zero dependencies. One HTTP server. Seven species. Unlimited emotional damage.*
+*Zero dependencies. One HTTP server. Eight species. Unlimited emotional damage.*
 
 <br>
 
@@ -131,6 +131,7 @@ Every egg is a dice roll — but only across species you have **earned**. Career
 | merge octopus | teal | starter | eight arms, still not allowed near prod |
 | build bot | steel | pass 10 builds | speaks binary when hungry |
 | fork bunny | white | commit 3 days in a row | multiplies your branches, you're welcome |
+| yappy chihuahua | cream, pink ears | commit 5 days in a row | four pounds, will bite your pull request |
 | zen capybara | brown | keep a pet alive for 7 days | unbothered, moisturized, ignoring your CI |
 | startup unicorn | pink, gold horn | 10 commits in a single day | mythical, like your test coverage |
 
